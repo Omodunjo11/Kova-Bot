@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  COLLECTOR_LEAD
+  COLLECTOR_MEMBER
+  END_USER
+  LENDER_PARTNER
+  KOVA_ADMIN
+}
+
+enum MembershipRole {
+  LEAD
+  MEMBER
+  END_USER
+}
+
+enum PaymentStatus {
+  RECORDED
+  CONFIRMED
+  REVERSED
+}
+
+model User {
+  id              String             @id @default(cuid())
+  whatsappNumber  String             @unique
+  fullName        String?
+  role            Role?
+  language        String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  memberships     GroupMembership[]
+  paymentsLogged  Payment[]          @relation("payment_logged_by")
+  paymentsAsMember Payment[]         @relation("member_payments")
+  events          ConversationEvent[]
+  roleAuditActor  RoleAssignment[]   @relation("role_assign_actor")
+  roleAuditTarget RoleAssignment[]   @relation("role_assign_target")
+}
+
+model CollectorGroup {
+  id          String             @id @default(cuid())
+  name        String
+  type        String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  memberships GroupMembership[]
+  payments    Payment[]
+}
+
+model GroupMembership {
+  id        String         @id @default(cuid())
+  userId    String
+  groupId   String
+  role      MembershipRole
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     CollectorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+model Payment {
+  id             String         @id @default(cuid())
+  groupId        String
+  memberUserId   String
+  amountKobo     Int
+  status         PaymentStatus  @default(RECORDED)
+  paidAt         DateTime
+  note           String?
+  loggedByUserId String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  group          CollectorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member         User           @relation("member_payments", fields: [memberUserId], references: [id], onDelete: Cascade)
+  loggedBy       User           @relation("payment_logged_by", fields: [loggedByUserId], references: [id], onDelete: Cascade)
+}
+
+model ConversationEvent {
+  id             String   @id @default(cuid())
+  userId         String
+  whatsappMsgId  String?  @unique
+  direction      String
+  roleSnapshot   Role?
+  messageText    String
+  intent         String?
+  actionName     String?
+  actionResult   String?
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RoleAssignment {
+  id            String   @id @default(cuid())
+  targetUserId  String
+  assignedRole  Role
+  reason        String?
+  actorUserId   String?
+  createdAt     DateTime @default(now())
+  targetUser    User     @relation("role_assign_target", fields: [targetUserId], references: [id], onDelete: Cascade)
+  actorUser     User?    @relation("role_assign_actor", fields: [actorUserId], references: [id], onDelete: SetNull)
+}

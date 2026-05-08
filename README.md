@@ -1,16 +1,54 @@
-# React + Vite
+# Kova WhatsApp Bot (Role-Based)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Express + Prisma + Claude backend for a role-aware WhatsApp bot.
 
-Currently, two official plugins are available:
+## Roles
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `COLLECTOR_LEAD`
+- `COLLECTOR_MEMBER`
+- `END_USER`
+- `LENDER_PARTNER`
+- `KOVA_ADMIN`
 
-## React Compiler
+Every inbound WhatsApp number maps to a user identity and role. Responses are role-gated.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- Node.js + Express
+- Prisma + PostgreSQL
+- Anthropic Claude API
+- Meta WhatsApp Cloud API webhook
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Quick Start
+
+1. Install dependencies:
+   - `npm install`
+2. Copy env file:
+   - `cp .env.example .env`
+3. Set real values in `.env`.
+4. Generate Prisma client:
+   - `npm run prisma:generate`
+5. Run migrations (after DB is reachable):
+   - `npm run prisma:migrate`
+6. Start local server:
+   - `npm run dev`
+
+## Endpoints
+
+- `GET /health`
+- `GET /webhook/whatsapp` (Meta verification handshake)
+- `POST /webhook/whatsapp` (incoming messages)
+
+## Current Behavior
+
+- First message from a new number triggers role onboarding (`1-4` selection).
+- Role is persisted and audited.
+- Subsequent messages route through Claude with role-aware system constraints.
+- Conversation events are persisted for memory/audit.
+
+## Next Build Steps
+
+- Add strict tool-calling orchestration for payment actions (`record_payment`, `send_reminder`, etc.).
+- Add membership scoping checks (collector can only touch their own groups).
+- Add lender views with aggregate risk queries.
+- Add admin endpoints for role overrides and investigations.
