@@ -202,12 +202,22 @@ async function getRoleAwareReply({ user, messageText }) {
 
   const messages = [{ role: "user", content: messageText }];
 
+  // System prompt with cache_control so the KB + role instructions are cached
+  // across requests. Saves ~70% on input token costs.
+  const systemWithCache = [
+    {
+      type: "text",
+      text: systemPrompt,
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+
   // Agentic loop: Claude may call multiple tools before giving final reply
   for (let turn = 0; turn < 5; turn++) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 600,
-      system: systemPrompt,
+      system: systemWithCache,
       tools: KOVA_TOOLS,
       messages,
     });
