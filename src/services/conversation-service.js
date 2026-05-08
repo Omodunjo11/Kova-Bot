@@ -50,6 +50,9 @@ async function logEvent(userId, direction, messageText, extras = {}) {
       intent: extras.intent || null,
       actionName: extras.actionName || null,
       actionResult: extras.actionResult || null,
+      processingStatus: extras.processingStatus || "COMPLETED",
+      retryCount: extras.retryCount || 0,
+      errorMessage: extras.errorMessage || null,
     },
   });
 }

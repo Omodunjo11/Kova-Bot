@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test": "echo \"No tests yet\""
+    "test": "node --test",
+    "test:ci": "node --test",
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +22,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "prisma": "^6.15.0",
+    "twilio": "^6.0.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

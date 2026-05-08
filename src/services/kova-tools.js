@@ -43,6 +43,24 @@ async function computeScore(userId) {
   return { score, tier, paymentCount, totalKobo };
 }
 
+async function getMembershipForUser(userId, groupId) {
+  if (!groupId) return null;
+  return prisma.groupMembership.findUnique({
+    where: { userId_groupId: { userId, groupId } },
+  });
+}
+
+async function ensureGroupAccess(user, groupId, { requireLead = false } = {}) {
+  const membership = await getMembershipForUser(user.id, groupId);
+  if (!membership) {
+    return { ok: false, error: "You don't have access to that group." };
+  }
+  if (requireLead && membership.role !== "LEAD") {
+    return { ok: false, error: "Only collector leads can perform that action in this group." };
+  }
+  return { ok: true, membership };
+}
+
 /* ================================================================
    ACTION RUNNER
    ================================================================ */
@@ -61,7 +79,10 @@ async function runAction({ user, action, params }) {
 
     /* ── MEMBER_SCORE_LOOKUP ──────────────────────────────────── */
     case ACTIONS.MEMBER_SCORE_LOOKUP: {
-      const { memberWhatsapp, memberId } = params || {};
+      const { groupId, memberWhatsapp, memberId } = params || {};
+      if (!groupId) return { ok: false, error: "groupId is required." };
+      const access = await ensureGroupAccess(user, groupId);
+      if (!access.ok) return access;
       let target;
       if (memberId) {
         target = await prisma.user.findUnique({ where: { id: memberId } });
@@ -70,6 +91,12 @@ async function runAction({ user, action, params }) {
         target = await prisma.user.findUnique({ where: { whatsappNumber: normalized } });
       }
       if (!target) return { ok: false, error: "Member not found." };
+      const inGroup = await prisma.groupMembership.findUnique({
+        where: { userId_groupId: { userId: target.id, groupId } },
+      });
+      if (!inGroup) {
+        return { ok: false, error: "Member is not in that group." };
+      }
       const result = await computeScore(target.id);
       return { ok: true, data: { member: { id: target.id, name: target.fullName, whatsapp: target.whatsappNumber }, ...result } };
     }
@@ -80,6 +107,8 @@ async function runAction({ user, action, params }) {
       if (!groupId || !amountKobo) {
         return { ok: false, error: "groupId and amountKobo are required." };
       }
+      const access = await ensureGroupAccess(user, groupId);
+      if (!access.ok) return access;
 
       // Resolve member by whatsapp or id
       let memberUser;
@@ -129,6 +158,8 @@ async function runAction({ user, action, params }) {
     case ACTIONS.VIEW_GROUP_SUMMARY: {
       const { groupId } = params || {};
       if (!groupId) return { ok: false, error: "groupId is required." };
+      const access = await ensureGroupAccess(user, groupId);
+      if (!access.ok) return access;
 
       const [group, memberships, payments] = await Promise.all([
         prisma.collectorGroup.findUnique({ where: { id: groupId } }),
@@ -177,6 +208,8 @@ async function runAction({ user, action, params }) {
     case ACTIONS.SEND_REMINDER: {
       const { groupId } = params || {};
       if (!groupId) return { ok: false, error: "groupId is required." };
+      const access = await ensureGroupAccess(user, groupId);
+      if (!access.ok) return access;
 
       const cycleStart = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
       const memberships = await prisma.groupMembership.findMany({
@@ -212,6 +245,8 @@ async function runAction({ user, action, params }) {
       if (!groupId || !whatsappNumber) {
         return { ok: false, error: "groupId and whatsappNumber are required." };
       }
+      const access = await ensureGroupAccess(user, groupId, { requireLead: true });
+      if (!access.ok) return access;
 
       const normalized = String(whatsappNumber).replace(/[^\d+]/g, "");
 
@@ -255,6 +290,8 @@ async function runAction({ user, action, params }) {
     case ACTIONS.VIEW_LENDER_SCORE: {
       const { groupId } = params || {};
       if (!groupId) return { ok: false, error: "groupId is required." };
+      const access = await ensureGroupAccess(user, groupId);
+      if (!access.ok) return access;
 
       const memberships = await prisma.groupMembership.findMany({
         where: { groupId },

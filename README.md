@@ -17,7 +17,7 @@ Every inbound WhatsApp number maps to a user identity and role. Responses are ro
 - Node.js + Express
 - Prisma + PostgreSQL
 - Anthropic Claude API
-- Meta WhatsApp Cloud API webhook
+- Twilio WhatsApp webhook + messaging API
 
 ## Quick Start
 
@@ -36,7 +36,9 @@ Every inbound WhatsApp number maps to a user identity and role. Responses are ro
 ## Endpoints
 
 - `GET /health`
-- `GET /webhook/whatsapp` (Meta verification handshake)
+- `GET /health/ready` (DB readiness + queue depth)
+- `GET /health/metrics` (in-memory counters + alert flags)
+- `GET /webhook/whatsapp` (verification handshake)
 - `POST /webhook/whatsapp` (incoming messages)
 
 ## Current Behavior
@@ -48,7 +50,24 @@ Every inbound WhatsApp number maps to a user identity and role. Responses are ro
 
 ## Next Build Steps
 
-- Add strict tool-calling orchestration for payment actions (`record_payment`, `send_reminder`, etc.).
-- Add membership scoping checks (collector can only touch their own groups).
-- Add lender views with aggregate risk queries.
-- Add admin endpoints for role overrides and investigations.
+## Production Environment Variables
+
+Required:
+
+- `DATABASE_URL`
+- `ANTHROPIC_API_KEY`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_WHATSAPP_NUMBER`
+- `WHATSAPP_VERIFY_TOKEN`
+- `PUBLIC_BASE_URL` (must match the public webhook base URL exactly)
+
+Optional:
+
+- `TWILIO_VALIDATE_SIGNATURE` (`true` by default; set `false` only for local debugging)
+
+## Reliability Notes
+
+- Webhook requests are acknowledged quickly and processed asynchronously.
+- Outbound Twilio sends retry with exponential backoff.
+- Inbound/outbound processing lifecycle is tracked in `ConversationEvent.processingStatus`.

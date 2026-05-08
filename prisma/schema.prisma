@@ -32,6 +32,14 @@ enum PaymentStatus {
   REVERSED
 }
 
+enum EventProcessingStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRIED
+}
+
 model User {
   id              String             @id @default(cuid())
   whatsappNumber  String             @unique
@@ -46,6 +54,8 @@ model User {
   events          ConversationEvent[]
   roleAuditActor  RoleAssignment[]   @relation("role_assign_actor")
   roleAuditTarget RoleAssignment[]   @relation("role_assign_target")
+
+  @@index([whatsappNumber])
 }
 
 model CollectorGroup {
@@ -84,6 +94,9 @@ model Payment {
   group          CollectorGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   member         User           @relation("member_payments", fields: [memberUserId], references: [id], onDelete: Cascade)
   loggedBy       User           @relation("payment_logged_by", fields: [loggedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, paidAt])
+  @@index([memberUserId, paidAt])
 }
 
 model ConversationEvent {
@@ -96,8 +109,14 @@ model ConversationEvent {
   intent         String?
   actionName     String?
   actionResult   String?
+  processingStatus EventProcessingStatus @default(COMPLETED)
+  retryCount     Int      @default(0)
+  errorMessage   String?
   createdAt      DateTime @default(now())
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([direction, createdAt])
+  @@index([userId, createdAt])
 }
 
 model RoleAssignment {

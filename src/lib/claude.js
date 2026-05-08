@@ -2,6 +2,8 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { anthropicApiKey } = require("../config/env");
 const { runAction, computeScore } = require("../services/kova-tools");
 const { ACTIONS } = require("../services/role-policy");
+const { increment } = require("../lib/metrics");
+const { error: logError } = require("../lib/logger");
 
 const client = new Anthropic({ apiKey: anthropicApiKey });
 
@@ -109,10 +111,11 @@ const KOVA_TOOLS = [
     input_schema: {
       type: "object",
       properties: {
+        groupId: { type: "string", description: "The group where the member belongs" },
         memberWhatsapp: { type: "string", description: "WhatsApp number of the member to look up" },
         memberId: { type: "string", description: "Kova user ID of the member to look up" },
       },
-      required: [],
+      required: ["groupId"],
     },
   },
   {
@@ -214,13 +217,23 @@ async function getRoleAwareReply({ user, messageText }) {
 
   // Agentic loop: Claude may call multiple tools before giving final reply
   for (let turn = 0; turn < 5; turn++) {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 600,
-      system: systemWithCache,
-      tools: KOVA_TOOLS,
-      messages,
-    });
+    let response;
+    try {
+      response = await Promise.race([
+        client.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 600,
+          system: systemWithCache,
+          tools: KOVA_TOOLS,
+          messages,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Claude request timeout")), 15000)),
+      ]);
+    } catch (error) {
+      increment("claudeFailure");
+      logError("claude_request_failed", { userId: user.id, error: error.message });
+      return "I’m having trouble reaching Kova intelligence right now. Please try again in a minute.";
+    }
 
     // If Claude is done (no tool calls), return the text
     if (response.stop_reason === "end_turn") {

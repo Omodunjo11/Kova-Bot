@@ -1,0 +1,50 @@
+stages:
+  - validate
+  - test
+  - deploy
+
+default:
+  image: node:20
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+
+install:
+  stage: validate
+  script:
+    - npm ci
+    - npm run prisma:generate
+  artifacts:
+    paths:
+      - node_modules/
+      - node_modules/.prisma/
+    expire_in: 1 day
+  rules:
+    - if: $CI_PIPELINE_SOURCE
+
+test:
+  stage: test
+  needs: ["install"]
+  script:
+    - npm run test:ci
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - coverage/
+  rules:
+    - if: $CI_PIPELINE_SOURCE
+
+deploy_migrations:
+  stage: deploy
+  needs: ["test"]
+  script:
+    - npm ci
+    - npx prisma migrate deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - when: never

@@ -4,6 +4,8 @@ const required = [
   "TWILIO_ACCOUNT_SID",
   "TWILIO_AUTH_TOKEN",
   "TWILIO_WHATSAPP_NUMBER",
+  "WHATSAPP_VERIFY_TOKEN",
+  "PUBLIC_BASE_URL",
 ];
 
 function validateEnv() {
@@ -16,9 +18,12 @@ function validateEnv() {
 module.exports = {
   port: Number(process.env.PORT || 3000),
   nodeEnv: process.env.NODE_ENV || "development",
+  publicBaseUrl: process.env.PUBLIC_BASE_URL || "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || "",
   twilioWhatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || "",
+  whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
+  twilioSignatureValidationEnabled: process.env.TWILIO_VALIDATE_SIGNATURE !== "false",
   validateEnv,
 };
