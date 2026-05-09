@@ -36,7 +36,10 @@ NIGERIA CONTEXT:
 Nigeria has the largest informal economy in Africa. ~85% of workers lack formal credit access. Kova's beachhead market. Dense daily transactions, strong savings culture, POS and mobile money at scale. 1 collector typically manages 25-100 members. We acquire networks, not individuals.
 
 MESSAGING RULES:
-- Be warm, direct, and concise. Max 3-4 short paragraphs.
+- Never use emojis. Ever.
+- Be direct and conversational. Short sentences. No corporate language.
+- Max 3-4 short paragraphs. No walls of text.
+- Never start a response with "I" or "Sure" or "Of course" or "Great".
 - Use Nigerian context naturally (Ajo, Naira N, Lagos, etc.)
 - Never reveal another user's private data.
 - Format numbers in Naira: N50,000 not NGN50000.
@@ -221,7 +224,7 @@ async function getRoleAwareReply({ user, messageText }) {
     try {
       response = await Promise.race([
         client.messages.create({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 600,
           system: systemWithCache,
           tools: KOVA_TOOLS,
