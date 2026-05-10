@@ -39,6 +39,32 @@ async function checkRateLimit(user) {
   return { allowed: true };
 }
 
+const LANGUAGE_KEYWORDS = {
+  en: ["english", "change to english", "switch to english"],
+  pid: ["pidgin", "naija", "change to pidgin", "switch to pidgin"],
+  yo: ["yoruba", "change to yoruba", "switch to yoruba"],
+  ig: ["igbo", "change to igbo", "switch to igbo"],
+  ha: ["hausa", "change to hausa", "switch to hausa"],
+};
+
+function detectLanguageChange(text) {
+  const t = text.toLowerCase().trim();
+  for (const [code, keywords] of Object.entries(LANGUAGE_KEYWORDS)) {
+    if (keywords.some(k => t.includes(k))) return { code };
+  }
+  return null;
+}
+
+async function enrichUserWithGroup(user) {
+  if (!user.role || !["COLLECTOR_LEAD", "COLLECTOR_MEMBER"].includes(user.role)) return user;
+  const membership = await prisma.groupMembership.findFirst({
+    where: { userId: user.id, role: { in: ["LEAD", "MEMBER"] } },
+    include: { group: true },
+  });
+  if (!membership) return user;
+  return { ...user, primaryGroupId: membership.groupId, primaryGroupName: membership.group.name };
+}
+
 async function logEvent(userId, direction, messageText, extras = {}) {
   await prisma.conversationEvent.create({
     data: {
@@ -83,7 +109,27 @@ async function handleIncomingMessage({ whatsappNumber, messageText, whatsappMess
     return getRoleOnboardingPrompt();
   }
 
-  const responseText = await getRoleAwareReply({ user, messageText });
+  // Handle language change command
+  const langChange = detectLanguageChange(messageText);
+  if (langChange) {
+    await prisma.user.update({ where: { id: user.id }, data: { language: langChange.code } });
+    user = { ...user, language: langChange.code };
+    const confirmations = {
+      en: "Language changed to English.",
+      pid: "Language don change to Pidgin.",
+      yo: "Ede ti yipada si Yoruba.",
+      ig: "Asụsụ agbanwee na Igbo.",
+      ha: "An canza yaren zuwa Hausa.",
+    };
+    const reply = confirmations[langChange.code] || "Language updated.";
+    await logEvent(user.id, "OUTBOUND", reply, { roleSnapshot: user.role, intent: "language_change" });
+    return reply;
+  }
+
+  // Inject user's group ID automatically so collectors don't have to know it
+  const enrichedUser = await enrichUserWithGroup(user);
+
+  const responseText = await getRoleAwareReply({ user: enrichedUser, messageText });
   await logEvent(user.id, "OUTBOUND", responseText, {
     roleSnapshot: user.role || null,
     intent: "claude_chat",

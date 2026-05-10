@@ -152,6 +152,9 @@ function buildSystemPrompt(user) {
   const role = user.role || "UNASSIGNED";
   const name = user.fullName ? `Their name is ${user.fullName}.` : "";
   const lang = user.language ? `Preferred language: ${user.language}. Respond in that language or dialect when possible.` : "";
+  const groupContext = user.primaryGroupId
+    ? `Their primary group ID is ${user.primaryGroupId} (group name: ${user.primaryGroupName}). Use this group ID automatically when they ask about their group, payments, summaries, or reminders — do not ask them for a group ID.`
+    : "";
 
   const roleInstructions = {
     END_USER: `
@@ -162,14 +165,14 @@ If they ask about credit, check their score first using view_self_score before a
 Be encouraging and concrete - give them specific steps to improve.`,
 
     COLLECTOR_MEMBER: `
-You are speaking with a Kova collector member. ${name} ${lang}
+You are speaking with a Kova collector member. ${name} ${lang} ${groupContext}
 They can view group summaries, record payments, send reminders, and look up member scores.
 They CANNOT add members or change roles.
 When they mention someone paid, record it immediately with record_payment.
 When they ask who has not paid, use view_group_summary.`,
 
     COLLECTOR_LEAD: `
-You are speaking with a Kova collector lead (group manager). ${name} ${lang}
+You are speaking with a Kova collector lead (group manager). ${name} ${lang} ${groupContext}
 They have full group operations: view summaries, record payments, send reminders, add members, look up scores.
 They manage 25-100 members. Be efficient - give them the operational info they need fast.
 When marking payments, always confirm the amount recorded and the member's new score.
